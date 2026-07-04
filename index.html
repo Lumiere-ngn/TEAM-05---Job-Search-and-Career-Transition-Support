@@ -365,14 +365,200 @@ function extractExperience(text){
   return null;
 }
 
-function extractSkillsFromCv(text){
-  const lower = (' ' + text.toLowerCase() + ' ');
-  const skillSearch = META.skillSearch || {};
-  const found = new Set();
-  for(const [term, skill] of Object.entries(skillSearch)){
-    if(lower.includes(term)) found.add(skill);
+// ---- Robust skill detection -------------------------------------------------
+// Extra aliases layered on top of the generated META.skillSearch so the posting
+// and CV parsers recognise far more skills, tools, synonyms and abbreviations.
+// A term ending in "*" is treated as a stem (prefix match, catches inflections
+// e.g. "administ*" -> administer/administration/administrator).
+const EXTRA_SKILL_SEARCH = {
+  // Programming languages
+  "c++": "C++", "cpp": "C++",
+  "c#": "C#", "c sharp": "C#", ".net": "C#", "dotnet": "C#", "asp.net": "C#",
+  "golang": "Go", "go lang": "Go",
+  "rust": "Rust",
+  "ruby": "Ruby", "ruby on rails": "Ruby", "rails": "Ruby",
+  "php": "PHP", "laravel": "PHP",
+  "swift": "Swift",
+  "kotlin": "Kotlin",
+  "scala": "Scala",
+  "perl": "Perl",
+  "objective-c": "Objective-C",
+  "matlab": "MATLAB",
+  "sas": "SAS",
+  "vba": "VBA",
+  "r programming": "R", "rstudio": "R", "r language": "R",
+  "shell scripting": "Shell scripting", "bash": "Shell scripting",
+  "powershell": "Shell scripting",
+
+  // Databases (relational engines roll up to SQL)
+  "mysql": "SQL", "postgres": "SQL", "postgresql": "SQL", "sql server": "SQL",
+  "tsql": "SQL", "t-sql": "SQL", "pl/sql": "SQL", "sqlite": "SQL",
+  "oracle database": "SQL", "mariadb": "SQL", "relational database": "SQL",
+  "nosql": "NoSQL", "mongodb": "MongoDB", "dynamodb": "NoSQL", "cassandra": "NoSQL",
+  "redis": "Redis", "elasticsearch": "Elasticsearch",
+
+  // Cloud & DevOps
+  "azure": "Cloud (Azure)", "microsoft azure": "Cloud (Azure)",
+  "gcp": "Cloud (GCP)", "google cloud": "Cloud (GCP)",
+  "ec2": "Cloud (AWS)", "s3": "Cloud (AWS)", "lambda": "Serverless",
+  "serverless": "Serverless",
+  "terraform": "Terraform", "ansible": "Ansible",
+  "ci/cd": "CI/CD", "cicd": "CI/CD", "ci cd": "CI/CD",
+  "jenkins": "CI/CD", "github actions": "CI/CD", "gitlab ci": "CI/CD", "circleci": "CI/CD",
+  "helm": "Kubernetes", "k8s": "Kubernetes",
+  "kafka": "Kafka", "rabbitmq": "Message queues",
+  "microservice*": "Microservices",
+  "linux": "Linux", "unix": "Linux",
+  "nginx": "Nginx",
+  "gitlab": "Git", "bitbucket": "Git", "version control": "Git",
+
+  // Frontend / web
+  "angular": "Angular",
+  "vue": "Vue.js", "vue.js": "Vue.js", "vuejs": "Vue.js",
+  "next.js": "React", "nextjs": "React", "redux": "React",
+  "node.js": "Node.js", "nodejs": "Node.js", " node ": "Node.js", "express.js": "Node.js",
+  "html": "HTML/CSS", "css": "HTML/CSS", "sass": "HTML/CSS", "tailwind": "HTML/CSS",
+  "graphql": "GraphQL",
+  "webpack": "Frontend tooling", "vite": "Frontend tooling",
+
+  // Data / ML / analytics
+  "machine learning": "Machine learning", "ml model*": "Machine learning",
+  "predictive model*": "Machine learning",
+  "deep learning": "Deep learning",
+  "tensorflow": "TensorFlow", "pytorch": "PyTorch",
+  "scikit-learn": "scikit-learn", "scikit learn": "scikit-learn", "sklearn": "scikit-learn",
+  "nlp": "NLP", "natural language processing": "NLP",
+  "computer vision": "Computer vision",
+  "numpy": "NumPy",
+  "spark": "Spark", "pyspark": "Spark", "apache spark": "Spark",
+  "hadoop": "Hadoop", "airflow": "Airflow", "snowflake": "Snowflake",
+  "dbt": "dbt", "databricks": "Databricks", "bigquery": "BigQuery",
+  "redshift": "Data warehousing", "data warehouse": "Data warehousing", "data warehousing": "Data warehousing",
+  "data pipeline*": "ETL", "data modeling": "Data modeling", "data modelling": "Data modeling",
+  "looker": "Data visualization", "qlik": "Data visualization", "d3.js": "Data visualization",
+  "google analytics": "Analytics", "ga4": "Analytics", "mixpanel": "Analytics", "amplitude": "Analytics",
+  "regression": "Statistics", "hypothesis test*": "Statistics", "statistical model*": "Statistics",
+  "analytical": "Analytics",
+  "forecast*": "Forecasting",
+  "spreadsheet*": "Excel", "pivot table*": "Excel", "vlookup": "Excel", "google sheets": "Excel",
+
+  // Software engineering practice
+  "object-oriented": "Object-oriented programming", "object oriented": "Object-oriented programming", "oop": "Object-oriented programming",
+  "design pattern*": "Design patterns",
+  "system design": "System design",
+  "algorithm*": "Algorithms",
+  "microservices architecture": "Microservices",
+  "tdd": "Testing", "test-driven": "Testing", "selenium": "Testing", "cypress": "Testing",
+  "jest": "Testing", "pytest": "Testing", "junit": "Testing", "qa ": "Testing",
+  "api ": "REST APIs", "apis": "REST APIs", "web services": "REST APIs",
+  "ci/cd pipeline*": "CI/CD",
+
+  // Product & design
+  "product management": "Product strategy", "product roadmap": "Roadmapping",
+  "backlog": "Agile", "kanban": "Agile", "user stor*": "Agile", "sprint*": "Agile",
+  "confluence": "Documentation", "documentation": "Documentation",
+  "okr*": "OKRs", "go-to-market": "Go-to-market", "gtm": "Go-to-market",
+  "market research": "User research", "user journey*": "User research",
+  "persona*": "User research", "user experience": "User research", "customer discovery": "User research",
+  "competitive analysis": "Product strategy",
+  "usability": "Usability testing", "user testing": "Usability testing",
+  "photoshop": "Adobe Creative Suite", "illustrator": "Adobe Creative Suite", "adobe creative": "Adobe Creative Suite",
+  "invision": "Prototyping", "miro": "Wireframing", "balsamiq": "Wireframing",
+
+  // Sales
+  "saas": "SaaS", "b2b": "B2B sales", "b2c": "B2C sales",
+  "cold calling": "Cold outreach", "outbound": "Cold outreach",
+  "discovery call*": "Demo skills",
+  "closing": "Negotiation", "deal*": "Pipeline management",
+  "territory": "Account planning",
+  "zoominfo": "Prospecting", "sales navigator": "Prospecting",
+  "gong": "Sales tooling", "outreach.io": "Sales tooling",
+  "quota carrying": "Quota attainment", "quota-carrying": "Quota attainment",
+
+  // Customer success / support
+  "gainsight": "Customer success tooling",
+  "zendesk": "Support escalation", "intercom": "Support escalation", "freshdesk": "Support escalation",
+  "nps": "Customer advocacy", "csat": "Customer advocacy",
+  "cross-selling": "Upselling", "cross selling": "Upselling",
+  "customer retention": "Retention",
+
+  // Operations & general business
+  "six sigma": "Process improvement", "lean": "Process improvement",
+  "erp": "ERP systems", "sap": "ERP systems", "netsuite": "ERP systems", "oracle erp": "ERP systems",
+  "inventory management": "Supply chain", "procurement": "Vendor management",
+  "warehouse": "Logistics", "fulfillment": "Logistics", "logistics": "Logistics",
+  "budgeting": "Budgeting", "budget management": "Budgeting",
+  "reporting": "Data analysis", "dashboard*": "Data visualization",
+  "automation": "Process improvement", "workflow*": "Process improvement",
+  "recruit*": "Recruiting", "talent acquisition": "Recruiting", "sourcing candidates": "Recruiting",
+
+  // Soft skills
+  "communicat*": "Communication",
+  "presentation*": "Presentation",
+  "leadership": "Leadership", "team lead*": "Leadership", "people management": "Leadership",
+  "mentor*": "Mentoring", "coaching": "Mentoring",
+  "problem solving": "Problem solving", "problem-solving": "Problem solving", "critical thinking": "Problem solving",
+  "time management": "Time management",
+  "collaborat*": "Collaboration", "team player": "Collaboration",
+  "attention to detail": "Attention to detail",
+  "adaptab*": "Adaptability",
+  "administ*": "Administration"
+};
+
+// Stems from the generated META.skillSearch that should match by prefix.
+const KNOWN_STEMS = new Set(['negotiat', 'vendor manag']);
+
+let _skillMatcher = null;
+
+function buildSkillMatcher(){
+  // META.skillSearch wins on conflicts so runtime stays consistent with the
+  // aggregated demand data; EXTRA_SKILL_SEARCH only fills the gaps.
+  const merged = Object.assign({}, EXTRA_SKILL_SEARCH, META.skillSearch || {});
+  const entries = [];
+  for(const [rawTerm, skill] of Object.entries(merged)){
+    let term = String(rawTerm).trim().toLowerCase();
+    let stem = false;
+    if(term.endsWith('*')){ stem = true; term = term.slice(0, -1).trim(); }
+    if(KNOWN_STEMS.has(term)) stem = true;
+    if(!term) continue;
+    const escaped = term
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/\s+/g, '[\\s\\-]+');
+    // Non-stems require an alphanumeric boundary on both sides (so "excel" no
+    // longer matches "excellent") but still allow common inflections. Stems
+    // match a prefix so "communicat*" catches communicate/communication.
+    const tail = stem ? '' : '(?:s|es|ing|ed)?(?![a-z0-9])';
+    let re;
+    try{
+      re = new RegExp('(?<![a-z0-9])' + escaped + tail, 'gi');
+    }catch(e){
+      re = new RegExp('(^|[^a-z0-9])' + escaped + tail, 'gi');
+    }
+    entries.push({ re, skill });
   }
-  return found;
+  return entries;
+}
+
+function getSkillMatcher(){
+  if(!_skillMatcher) _skillMatcher = buildSkillMatcher();
+  return _skillMatcher;
+}
+
+function matchSkillFreq(text){
+  const matcher = getSkillMatcher();
+  const hay = ' ' + String(text || '').toLowerCase() + ' ';
+  const freq = new Map();
+  for(const { re, skill } of matcher){
+    re.lastIndex = 0;
+    let count = 0;
+    while(re.exec(hay) !== null) count++;
+    if(count) freq.set(skill, (freq.get(skill) || 0) + count);
+  }
+  return freq;
+}
+
+function extractSkillsFromCv(text){
+  return new Set(matchSkillFreq(text).keys());
 }
 
 function scoreRoles(detectedSkills){
@@ -467,17 +653,7 @@ function detectRoleFromPosting(text){
 }
 
 function extractSkillsWithFreq(text){
-  const lower = ' ' + text.toLowerCase() + ' ';
-  const skillSearch = META.skillSearch || {};
-  const freq = new Map();
-  for(const [term, skill] of Object.entries(skillSearch)){
-    let idx = 0;
-    while((idx = lower.indexOf(term, idx)) !== -1){
-      freq.set(skill, (freq.get(skill) || 0) + 1);
-      idx += term.length || 1;
-    }
-  }
-  return freq;
+  return matchSkillFreq(text);
 }
 
 function extractRequirementsSection(text){
