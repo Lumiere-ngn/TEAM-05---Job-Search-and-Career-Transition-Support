@@ -1,0 +1,28 @@
+{
+  "total_postings_matched": 6382,
+  "by_source": {
+    "linkedin": 5869,
+    "indeed": 513
+  },
+  "by_role": {
+    "Sales": 2443,
+    "Operations": 1697,
+    "Software Engineer": 945,
+    "Data Analyst": 745,
+    "Product Manager": 481,
+    "Customer Success": 71
+  },
+  "applicants_per_posting": {
+    "Operations": 7.0,
+    "Software Engineer": 7.0,
+    "Data Analyst": 7.0,
+    "Customer Success": 7.0,
+    "Sales": 7.0,
+    "Product Manager": 8.0
+  },
+  "outputs": {
+    "skills_by_role": "/Users/rachnaraj/Downloads/TEAM-05---Job-Search-and-Career-Transition-Support/data/skills_by_role.csv",
+    "roles": "/Users/rachnaraj/Downloads/TEAM-05---Job-Search-and-Career-Transition-Support/data/roles.csv",
+    "aggregated_json": "/Users/rachnaraj/Downloads/TEAM-05---Job-Search-and-Career-Transition-Support/data/aggregated.json"
+  }
+}

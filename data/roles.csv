@@ -1,0 +1,7 @@
+role,median_experience_years,total_postings,median_salary,salary_min,salary_max,sources,applicants_per_posting
+Data Analyst,5.0,745,152250.0,60000.0,470000.0,"indeed,linkedin",7.0
+Software Engineer,5.0,945,190888.0,70000.0,1000000.0,"indeed,linkedin",7.0
+Product Manager,5.0,481,165000.0,74250.0,338300.0,"indeed,linkedin",8.0
+Sales,5.0,2443,74880.0,100000.0,200100.0,"indeed,linkedin",7.0
+Customer Success,5.0,71,200000.0,,,"indeed,linkedin",7.0
+Operations,5.0,1697,76917.0,60000.0,231000.0,"indeed,linkedin",7.0

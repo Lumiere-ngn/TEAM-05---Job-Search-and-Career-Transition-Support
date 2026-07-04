@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job-Fit Gap Analyzer</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --ink:#1c1d21; --muted:#6b7280;
+    --accent:#2f6fd8; --accent-soft:#e7f0fd; --line:#e5e7eb;
+    --good:#1d9e75; --warn:#d97706; --bad:#dc2626; --bar-bg:#eef1f5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.5}
+  .wrap{max-width:860px;margin:0 auto;padding:28px 20px 60px}
+  header h1{margin:0 0 4px;font-size:24px}
+  header p{margin:0 0 24px;color:var(--muted);font-size:15px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:22px;margin-bottom:20px}
+  label{display:block;font-weight:600;font-size:13px;margin-bottom:8px}
+  select,input[type=number],input[type=file],textarea{width:100%;padding:10px 12px;border:1px solid var(--line);
+    border-radius:8px;font-size:15px;background:#fff;font-family:inherit}
+  textarea{min-height:120px;resize:vertical}
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .row>div{flex:1;min-width:180px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .chip{padding:8px 12px;border:1px solid var(--line);border-radius:20px;font-size:13px;
+    cursor:pointer;user-select:none;background:#fff;transition:.15s}
+  .chip.on{background:var(--good);border-color:var(--good);color:#fff}
+  .hint{font-size:12px;color:var(--muted);margin-top:8px}
+  button.go{margin-top:18px;background:var(--accent);color:#fff;border:0;padding:12px 22px;
+    border-radius:9px;font-size:15px;font-weight:600;cursor:pointer}
+  button.go:hover{background:#2559b3}
+  button.go.secondary{background:#fff;color:var(--accent);border:1px solid var(--accent)}
+  button.go.secondary:hover{background:var(--accent-soft)}
+  .cv-section{margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--line)}
+  .cv-section h2{font-size:16px;margin:0 0 6px}
+  .cv-section .sub{font-size:13px;color:var(--muted);margin:0 0 14px}
+  .parse-result{display:none;margin-top:14px;padding:12px 14px;background:var(--accent-soft);
+    border-radius:10px;font-size:14px}
+  .parse-result.visible{display:block}
+  .parse-result .suggest{font-weight:600;color:var(--accent);margin-top:6px}
+  .role-hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+  .results{display:none}
+  .summary{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+  .stat{flex:1;min-width:150px;background:var(--accent-soft);border-radius:12px;padding:16px}
+  .stat .n{font-size:26px;font-weight:700}
+  .stat .l{font-size:12px;color:var(--muted)}
+  .stat .sub{font-size:11px;color:var(--muted);margin-top:4px}
+  .badge{display:inline-block;font-size:11px;background:#fff;border:1px solid var(--line);
+    border-radius:6px;padding:2px 8px;color:var(--muted);margin-bottom:12px}
+  h3{font-size:16px;margin:22px 0 12px}
+  .gap{margin-bottom:14px}
+  .gap .top{display:flex;justify-content:space-between;font-size:14px;margin-bottom:5px;gap:12px}
+  .gap .top b{font-weight:600}
+  .gap .pct{color:var(--muted);font-size:13px;text-align:right;white-space:nowrap}
+  .bar{height:9px;background:var(--bar-bg);border-radius:6px;overflow:hidden}
+  .bar>span{display:block;height:100%;background:var(--accent);border-radius:6px}
+  .none{color:var(--good);font-weight:600}
+  .plan li{margin-bottom:8px;font-size:14px}
+  .foot{font-size:12px;color:var(--muted);margin-top:24px;border-top:1px solid var(--line);
+    padding-top:14px;line-height:1.6}
+  .foot a{color:var(--accent)}
+  .foot details{margin-top:12px}
+  .foot summary{cursor:pointer;font-weight:600;color:var(--ink)}
+  .foot table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
+  .foot th,.foot td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+  .foot th{background:#f9fafb}
+  .mode-tabs{display:flex;gap:0;margin:20px 0 0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .mode-tab{flex:1;padding:12px 14px;border:0;background:#fff;font-size:13px;font-weight:600;
+    cursor:pointer;color:var(--muted);transition:.15s}
+  .mode-tab.active{background:var(--accent-soft);color:var(--accent)}
+  .mode-tab:hover:not(.active){background:#fafafa}
+  .mode-panel{display:none}
+  .mode-panel.active{display:block}
+  .section-head{font-size:16px;margin:0 0 4px}
+  .section-sub{font-size:13px;color:var(--muted);margin:0 0 14px}
+  .posting-section h2{font-size:16px;margin:0 0 6px}
+  .posting-section .sub{font-size:13px;color:var(--muted);margin:0 0 14px}
+  .posting-preview{display:none;margin-top:14px;padding:12px 14px;background:#f9fafb;
+    border:1px solid var(--line);border-radius:10px;font-size:13px;line-height:1.55}
+  .posting-preview.visible{display:block}
+  .posting-preview h4{margin:0 0 8px;font-size:13px}
+  .skill-lists{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+  @media(max-width:640px){.skill-lists{grid-template-columns:1fr}}
+  .skill-list{font-size:14px}
+  .skill-list h4{margin:0 0 8px;font-size:14px}
+  .skill-list ul{margin:0;padding-left:18px}
+  .skill-list li{margin-bottom:4px}
+  .skill-list.missing li{color:var(--bad)}
+  .skill-list.matched li{color:var(--good)}
+  .disclaimer{font-size:12px;color:var(--muted);background:#fef3c7;border:1px solid #fde68a;
+    border-radius:8px;padding:10px 12px;margin-bottom:16px;line-height:1.5}
+  .market-ctx{font-size:13px;color:var(--muted);margin-top:16px;padding-top:14px;
+    border-top:1px solid var(--line);line-height:1.6}
+  .market-ctx li{margin-bottom:4px}
+</style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="data/data.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Job-Fit Gap Analyzer</h1>
+    <p>Upload your CV, then benchmark against market data or analyze fit for a specific job posting — all in your browser.</p>
+  </header>
+
+  <div class="card">
+    <div class="cv-section">
+      <h2>Start with your CV</h2>
+      <p class="sub">We parse your resume locally in the browser — nothing is uploaded to a server.</p>
+      <label for="cvFile">Upload resume (.txt or .pdf)</label>
+      <input type="file" id="cvFile" accept=".txt,.pdf,text/plain,application/pdf">
+      <div class="hint">Word (.docx) not supported yet — paste text below instead.</div>
+      <label for="cvText" style="margin-top:14px">Or paste resume text</label>
+      <textarea id="cvText" placeholder="Paste your resume here…"></textarea>
+      <button class="go secondary" id="parseCv" type="button">Parse my CV</button>
+      <div class="parse-result" id="parseResult"></div>
+    </div>
+
+    <div class="mode-tabs" role="tablist">
+      <button class="mode-tab active" id="tabBenchmark" type="button" role="tab" aria-selected="true">Benchmark against market data</button>
+      <button class="mode-tab" id="tabPosting" type="button" role="tab" aria-selected="false">Analyze a specific job</button>
+    </div>
+
+    <div class="mode-panel active" id="benchmarkPanel" role="tabpanel">
+      <h2 class="section-head" style="margin-top:18px">Benchmark against market data</h2>
+      <p class="section-sub">Compare your skills to aggregated demand across thousands of real postings for a target role.</p>
+      <div class="row">
+        <div>
+          <label for="role">Target role</label>
+          <select id="role"></select>
+          <div class="role-hint" id="roleHint"></div>
+        </div>
+        <div>
+          <label for="exp">Your years of experience</label>
+          <input type="number" id="exp" min="0" max="40" value="2">
+        </div>
+      </div>
+      <div style="margin-top:18px">
+        <label>Tap the skills you already have</label>
+        <div class="chips" id="chips"></div>
+        <div class="hint">Anything left un-tapped that the role commonly requires becomes your gap.</div>
+      </div>
+      <button class="go" id="analyze">Analyze my fit</button>
+    </div>
+
+    <div class="mode-panel posting-section" id="postingPanel" role="tabpanel">
+      <h2 style="margin-top:18px">Analyze a specific job</h2>
+      <p class="sub">Paste the full job description. We extract requirements and compare them to your CV.</p>
+      <label for="jobPosting">Target job posting</label>
+      <textarea id="jobPosting" placeholder="Paste the job title and description here…
+
+Example:
+Senior Data Analyst — Acme Corp
+Requirements:
+• 3+ years of experience in analytics
+• Strong SQL and Python skills
+• Experience with Tableau or Power BI
+• Bachelor's degree in a quantitative field
+Preferred:
+• dbt, ETL pipelines, A/B testing"></textarea>
+      <div class="hint">Parse your CV above first for best results. Experience uses the years field from CV parse.</div>
+      <button class="go" id="analyzeJob" type="button">Analyze fit for this job</button>
+      <div class="posting-preview" id="postingPreview"></div>
+    </div>
+  </div>
+
+  <div class="card results" id="results"></div>
+  <div class="foot" id="foot"></div>
+</div>
+
+<script>
+if(window.pdfjsLib){
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+let DATA = {};
+let META = {};
+let cvTextCache = '';
+
+function loadPayload(payload){
+  DATA = payload.roles || payload;
+  META = payload.meta || {};
+  init();
+}
+
+function fmtMoney(n){
+  if(n == null || Number.isNaN(n)) return null;
+  return '$' + Math.round(n).toLocaleString();
+}
+
+function roleOptionLabel(roleName){
+  const role = DATA[roleName];
+  if(!role || !role.exampleTitles || !role.exampleTitles.length) return roleName;
+  const examples = role.exampleTitles.slice(0, 4).join(', ');
+  return `${roleName} — e.g. ${examples}`;
+}
+
+function roleHintText(roleName){
+  const role = DATA[roleName];
+  if(!role || !role.exampleTitles || !role.exampleTitles.length){
+    return 'Six canonical roles mapped from thousands of real postings.';
+  }
+  return `Matches titles like: ${role.exampleTitles.join(', ')}`;
+}
+
+function init(){
+  const roles = Object.keys(DATA);
+  if(!roles.length){
+    document.getElementById('role').innerHTML = '<option>No data loaded</option>';
+    return;
+  }
+  roleSel.innerHTML = roles.map(r=>`<option value="${r}">${roleOptionLabel(r)}</option>`).join('');
+  renderRoleHint();
+  renderChips();
+  renderFoot();
+}
+
+const roleSel = document.getElementById('role');
+const chipBox = document.getElementById('chips');
+const results = document.getElementById('results');
+const foot = document.getElementById('foot');
+const roleHint = document.getElementById('roleHint');
+const parseResult = document.getElementById('parseResult');
+let have = new Set();
+
+function renderRoleHint(){
+  roleHint.textContent = roleHintText(roleSel.value);
+}
+
+function renderChips(preselect){
+  have = new Set(preselect || []);
+  const role = DATA[roleSel.value];
+  if(!role) return;
+  chipBox.innerHTML = role.skills.map(s=>{
+    const on = have.has(s.skill) ? ' on' : '';
+    return `<span class="chip${on}" data-s="${s.skill}">${s.skill}</span>`;
+  }).join('');
+  chipBox.querySelectorAll('.chip').forEach(c=>{
+    c.onclick=()=>{ c.classList.toggle('on');
+      c.classList.contains('on')?have.add(c.dataset.s):have.delete(c.dataset.s); };
+  });
+  results.style.display='none';
+}
+
+roleSel.onchange = ()=>{ renderRoleHint(); renderChips(); };
+
+async function readCvFile(file){
+  if(!file) return '';
+  const ext = file.name.split('.').pop().toLowerCase();
+  if(ext === 'txt'){
+    return await file.text();
+  }
+  if(ext === 'pdf'){
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+    let text = '';
+    for(let i = 1; i <= pdf.numPages; i++){
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(it => it.str).join(' ') + '\n';
+    }
+    return text;
+  }
+  throw new Error('Unsupported file type. Use .txt or .pdf, or paste text.');
+}
+
+function extractExperience(text){
+  const lower = text.toLowerCase();
+  // Explicit "X years experience" patterns
+  const expPatterns = [
+    /(\d+)\+?\s*(?:years?|yrs?)\s*(?:of\s+)?(?:professional\s+)?experience/,
+    /experience[:\s]+(\d+)\+?\s*(?:years?|yrs?)/,
+    /(\d+)\+?\s*(?:years?|yrs?)\s+in\s+/,
+  ];
+  for(const pat of expPatterns){
+    const m = lower.match(pat);
+    if(m) return parseInt(m[1], 10);
+  }
+  // Employment date ranges: 2018 – 2023, Jan 2019 - Present
+  const rangePat = /(\b(?:19|20)\d{2}\b)\s*[-–—to]+\s*(\b(?:19|20)\d{2}\b|present|current)/gi;
+  let totalMonths = 0;
+  let match;
+  const now = new Date();
+  while((match = rangePat.exec(text)) !== null){
+    const start = parseInt(match[1], 10);
+    const endStr = match[2].toLowerCase();
+    const end = (endStr === 'present' || endStr === 'current') ? now.getFullYear() : parseInt(endStr, 10);
+    if(end >= start) totalMonths += (end - start) * 12;
+  }
+  if(totalMonths >= 12) return Math.round(totalMonths / 12);
+  return null;
+}
+
+function extractSkillsFromCv(text){
+  const lower = (' ' + text.toLowerCase() + ' ');
+  const skillSearch = META.skillSearch || {};
+  const found = new Set();
+  for(const [term, skill] of Object.entries(skillSearch)){
+    if(lower.includes(term)) found.add(skill);
+  }
+  return found;
+}
+
+function scoreRoles(detectedSkills){
+  const scores = [];
+  for(const [roleName, role] of Object.entries(DATA)){
+    const lexicon = role.allSkills || role.skills.map(s => s.skill);
+    if(!lexicon.length) continue;
+    let hits = 0;
+    for(const sk of lexicon){
+      if(detectedSkills.has(sk)) hits++;
+    }
+    scores.push({ role: roleName, pct: Math.round(100 * hits / lexicon.length), hits, total: lexicon.length });
+  }
+  scores.sort((a,b) => b.pct - a.pct || b.hits - a.hits);
+  return scores;
+}
+
+const ROLE_PATTERNS = {
+  'Data Analyst': [
+    'data analyst', 'business analyst', 'analytics analyst', 'reporting analyst', 'bi analyst',
+    'business intelligence', 'financial analyst', 'fp&a analyst', 'fp&a', 'data scientist',
+    'pricing analyst', 'compliance analyst', 'insights analyst'
+  ],
+  'Software Engineer': [
+    'software engineer', 'software developer', 'backend engineer', 'frontend engineer',
+    'front-end engineer', 'front end engineer', 'full stack', 'full-stack', 'web developer',
+    'application developer', 'devops engineer', 'platform engineer', 'cloud infrastructure engineer',
+    'ml engineer', 'machine learning engineer', 'sre', 'technical support engineer'
+  ],
+  'Product Manager': [
+    'product manager', 'product owner', 'technical product manager', 'associate product manager',
+    'growth product manager', 'growth pm', 'ux designer', 'ui designer', 'ui/ux',
+    'product designer', 'senior product designer', 'interaction designer',
+    'user experience designer', 'visual designer'
+  ],
+  'Sales': [
+    'sales development representative', 'sdr', 'bdr', 'business development representative',
+    'business development manager', 'regional sales manager', 'sales manager', 'account executive',
+    'inside sales', 'sales representative'
+  ],
+  'Customer Success': [
+    'customer success manager', 'customer success specialist', 'client success manager',
+    'partner success manager', 'customer success', 'client success', 'partner success'
+  ],
+  'Operations': [
+    'operations manager', 'logistics operations', 'supply chain', 'talent acquisition',
+    'recruiter', 'recruiting specialist', 'project manager', 'program manager',
+    'business operations', 'operations analyst'
+  ]
+};
+
+function getCvText(){
+  if(cvTextCache) return cvTextCache;
+  return document.getElementById('cvText').value.trim();
+}
+
+function getCvSkills(){
+  const text = getCvText();
+  const fromCv = text ? extractSkillsFromCv(text) : new Set();
+  const merged = new Set(fromCv);
+  have.forEach(s => merged.add(s));
+  return merged;
+}
+
+function textMatchesPattern(text, pat){
+  const trimmed = pat.trim();
+  if(!trimmed) return false;
+  const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+  return new RegExp('\\b' + escaped + '\\b', 'i').test(text);
+}
+
+function detectRoleFromPosting(text){
+  const lower = text.toLowerCase();
+  const firstLines = lower.split('\n').slice(0, 5).join('\n');
+  const scores = [];
+
+  for(const [role, patterns] of Object.entries(ROLE_PATTERNS)){
+    let hits = 0;
+    for(const pat of patterns){
+      if(textMatchesPattern(firstLines, pat)) hits += 3;
+      else if(textMatchesPattern(lower, pat)) hits += 1;
+    }
+    if(hits > 0) scores.push({ role, hits });
+  }
+  scores.sort((a,b) => b.hits - a.hits);
+
+  if(scores.length) return scores[0].role;
+
+  const postingSkills = extractSkillsWithFreq(text);
+  const roleScores = scoreRoles(new Set(postingSkills.keys()));
+  return roleScores[0]?.role || null;
+}
+
+function extractSkillsWithFreq(text){
+  const lower = ' ' + text.toLowerCase() + ' ';
+  const skillSearch = META.skillSearch || {};
+  const freq = new Map();
+  for(const [term, skill] of Object.entries(skillSearch)){
+    let idx = 0;
+    while((idx = lower.indexOf(term, idx)) !== -1){
+      freq.set(skill, (freq.get(skill) || 0) + 1);
+      idx += term.length || 1;
+    }
+  }
+  return freq;
+}
+
+function extractRequirementsSection(text){
+  const lines = text.split('\n');
+  const triggers = [
+    'requirements', 'qualifications', 'what you\'ll need', 'what you need',
+    'what we\'re looking for', 'must have', 'must-have', 'minimum qualifications',
+    'required skills', 'required qualifications', 'you have', 'you bring'
+  ];
+  let startIdx = -1;
+  for(let i = 0; i < lines.length; i++){
+    const line = lines[i].toLowerCase().trim();
+    if(triggers.some(t => line.includes(t))){
+      startIdx = i;
+      break;
+    }
+  }
+  if(startIdx === -1) return text;
+  const section = lines.slice(startIdx, startIdx + 30).join('\n');
+  return section.length > 80 ? section : text;
+}
+
+function extractPostingExperience(text){
+  const lower = text.toLowerCase();
+  let m = lower.match(/(\d+)\s*[-–—to]+\s*(\d+)\+?\s*(?:years?|yrs?)/);
+  if(m) return { min: parseInt(m[1], 10), max: parseInt(m[2], 10), label: `${m[1]}-${m[2]} years` };
+
+  m = lower.match(/(\d+)\+\s*(?:years?|yrs?)/);
+  if(m) return { min: parseInt(m[1], 10), max: null, label: `${m[1]}+ years` };
+
+  m = lower.match(/(?:minimum|at least|min\.?)\s*(\d+)\s*(?:years?|yrs?)/);
+  if(m) return { min: parseInt(m[1], 10), max: null, label: `at least ${m[1]} years` };
+
+  m = lower.match(/(\d+)\s*(?:years?|yrs?)\s*(?:of\s+)?(?:relevant\s+)?(?:experience|exp\.?)/);
+  if(m) return { min: parseInt(m[1], 10), max: null, label: `${m[1]} years experience` };
+
+  if(/\bentry[\s-]?level\b|\bjunior\b|\bgraduate\b|\b0[\s-]2\s*years\b/.test(lower))
+    return { min: 0, max: 2, label: 'Entry level (0-2 years)' };
+  if(/\bsenior\b|\bsr\.?\b|\bstaff\b|\bprincipal\b/.test(lower))
+    return { min: 5, max: null, label: 'Senior level (5+ years)' };
+  if(/\bmid[\s-]?level\b|\bintermediate\b|\b3[\s-]5\s*years\b/.test(lower))
+    return { min: 3, max: 5, label: 'Mid-level (3-5 years)' };
+
+  return null;
+}
+
+function parseJobPosting(text){
+  const reqText = extractRequirementsSection(text);
+  const skillFreq = extractSkillsWithFreq(text);
+  const reqSkillFreq = extractSkillsWithFreq(reqText);
+  const role = detectRoleFromPosting(text);
+  const expReq = extractPostingExperience(text);
+  const titleLine = text.split('\n').map(l => l.trim()).find(l => l.length > 3) || 'Untitled posting';
+
+  const skills = [...skillFreq.entries()]
+    .map(([skill, freq]) => ({
+      skill,
+      freq,
+      inRequirements: reqSkillFreq.has(skill),
+      reqFreq: reqSkillFreq.get(skill) || 0
+    }))
+    .sort((a,b) => b.freq - a.freq || (b.inRequirements - a.inRequirements));
+
+  return { titleLine, role, expReq, skills, skillFreq, reqText };
+}
+
+function learnSuggestion(roleName, skillName){
+  const role = DATA[roleName];
+  if(!role) return 'Add projects or coursework demonstrating this skill on your CV.';
+  const entry = role.skills.find(s => s.skill === skillName);
+  return entry ? entry.learn : 'Add projects or coursework demonstrating this skill on your CV.';
+}
+
+function marketDemandPct(roleName, skillName){
+  const role = DATA[roleName];
+  if(!role) return null;
+  const entry = role.skills.find(s => s.skill === skillName);
+  return entry ? entry.demand : null;
+}
+
+function renderPostingPreview(parsed){
+  const preview = document.getElementById('postingPreview');
+  const skillNames = parsed.skills.slice(0, 8).map(s => s.skill);
+  const expLine = parsed.expReq
+    ? `<strong>Experience:</strong> ${parsed.expReq.label}<br>`
+    : '<strong>Experience:</strong> not explicitly stated<br>';
+  const roleLine = parsed.role
+    ? `<strong>Detected role:</strong> ${parsed.role}<br>`
+    : '<strong>Detected role:</strong> unclear — using posting skills only<br>';
+
+  preview.innerHTML = `
+    <h4>Detected posting requirements (preview)</h4>
+    <strong>Title:</strong> ${parsed.titleLine.slice(0, 120)}${parsed.titleLine.length > 120 ? '…' : ''}<br>
+    ${roleLine}${expLine}
+    <strong>Skills mentioned:</strong> ${skillNames.length ? skillNames.join(', ') : 'none detected from lexicon'}
+    ${parsed.skills.length > 8 ? ` (+${parsed.skills.length - 8} more)` : ''}`;
+  preview.classList.add('visible');
+}
+
+function renderJobFitResults(parsed, cvSkills, cvExp){
+  const postingSkills = parsed.skills.map(s => s.skill);
+  const matched = postingSkills.filter(s => cvSkills.has(s));
+  const missing = parsed.skills.filter(s => !cvSkills.has(s.skill));
+  const fitPct = postingSkills.length
+    ? Math.round(matched.length / postingSkills.length * 100)
+    : 0;
+
+  let expMsg = 'No explicit experience requirement detected in this posting.';
+  if(parsed.expReq && cvExp != null){
+    const req = parsed.expReq;
+    if(cvExp >= req.min) expMsg = `Meets requirement — posting asks for ${req.label}; you have ${cvExp} yrs.`;
+    else expMsg = `Below requirement — posting asks for ${req.label}; you have ${cvExp} yrs. Highlight relevant projects to compensate.`;
+  } else if(parsed.expReq){
+    expMsg = `Posting asks for ${parsed.expReq.label}. Enter your years of experience above for comparison.`;
+  }
+
+  const matchedHTML = matched.length
+    ? `<ul>${matched.map(s => `<li>${s}</li>`).join('')}</ul>`
+    : '<p style="color:var(--muted);margin:0">No tracked skills from this posting found in your CV.</p>';
+
+  const missingHTML = missing.length
+    ? `<ul>${missing.slice(0, 12).map(s => `<li>${s.skill}${s.freq > 1 ? ` (×${s.freq} in posting)` : ''}</li>`).join('')}</ul>`
+    : '<p class="none" style="margin:0">You match every skill detected in this posting.</p>';
+
+  const topImprove = missing.slice(0, 3);
+  const planHTML = topImprove.length
+    ? `<h3>Top ${topImprove.length} things to improve for this application</h3><ul class="plan">${
+        topImprove.map(s => `<li><b>${s.skill}</b> — mentioned ${s.freq} time${s.freq === 1 ? '' : 's'} in posting. ${learnSuggestion(parsed.role, s.skill)}</li>`).join('')
+      }</ul>`
+    : '';
+
+  let marketHTML = '';
+  if(parsed.role && DATA[parsed.role]){
+    const role = DATA[parsed.role];
+    const ctxSkills = missing.slice(0, 3);
+    const ctxItems = ctxSkills.map(s => {
+      const demand = marketDemandPct(parsed.role, s.skill);
+      return demand != null
+        ? `<li>For <b>${parsed.role}</b>, <b>${s.skill}</b> appears in ${demand}% of similar postings (${role.totalPostings.toLocaleString()} aggregated)</li>`
+        : `<li><b>${s.skill}</b> is listed in this posting but has limited market data for ${parsed.role}</li>`;
+    }).join('');
+    const applicantMsg = role.applicants != null
+      ? `~${role.applicants} applicants per posting (median in Mindweave data)`
+      : 'applicant data unavailable';
+    marketHTML = `
+      <div class="market-ctx">
+        <strong>Market context for ${parsed.role}</strong>
+        <ul>${ctxItems}
+          <li>Competition: ${applicantMsg}</li>
+          ${role.medianSalary ? `<li>Median salary in this category: ${fmtMoney(role.medianSalary)}/yr</li>` : ''}
+        </ul>
+      </div>`;
+  }
+
+  results.innerHTML = `
+    <span class="badge">Specific job analysis · keyword matching only</span>
+    <div class="disclaimer">
+      This compares keywords in the posting against your CV — not a hiring decision.
+      Synonyms, unstated skills, and context are not fully captured.
+    </div>
+    <h3 style="margin-top:0">Posting requirements summary</h3>
+    <p style="font-size:14px;margin:0 0 8px"><strong>${parsed.titleLine.slice(0, 100)}${parsed.titleLine.length > 100 ? '…' : ''}</strong></p>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">
+      ${parsed.role ? `Role category: ${parsed.role} · ` : ''}${parsed.expReq ? `Experience: ${parsed.expReq.label} · ` : ''}${postingSkills.length} skill${postingSkills.length === 1 ? '' : 's'} detected
+    </p>
+    <div class="summary">
+      <div class="stat"><div class="n">${fitPct}%</div>
+        <div class="l">fit for this posting</div>
+        <div class="sub">${matched.length} of ${postingSkills.length} posting skills in your CV</div></div>
+      <div class="stat"><div class="n">${missing.length}</div>
+        <div class="l">skills missing</div>
+        <div class="sub">from this job description</div></div>
+      <div class="stat"><div class="n">${cvExp != null ? cvExp + ' yrs' : '—'}</div>
+        <div class="l">your experience</div>
+        <div class="sub">${expMsg}</div></div>
+    </div>
+    <div class="skill-lists">
+      <div class="skill-list matched"><h4>You have (${matched.length})</h4>${matchedHTML}</div>
+      <div class="skill-list missing"><h4>Missing from this posting (${missing.length})</h4>${missingHTML}</div>
+    </div>
+    <h3>Experience alignment</h3>
+    <p style="font-size:14px">${expMsg}</p>
+    ${planHTML}
+    ${marketHTML}`;
+  results.style.display = 'block';
+  results.scrollIntoView({ behavior: 'smooth' });
+}
+
+function applyCvParse(text){
+  cvTextCache = text;
+  const exp = extractExperience(text);
+  const skills = extractSkillsFromCv(text);
+  const roleScores = scoreRoles(skills);
+
+  if(exp != null) document.getElementById('exp').value = exp;
+
+  const top = roleScores[0];
+  const second = roleScores[1];
+  if(top && top.pct > 0){
+    roleSel.value = top.role;
+    renderRoleHint();
+    renderChips([...skills]);
+  } else {
+    renderChips([...skills]);
+  }
+
+  let html = `<strong>Detected:</strong> ${exp != null ? exp + ' yrs experience' : 'experience unclear (edit field above)'}, ` +
+    `${skills.size} skill${skills.size === 1 ? '' : 's'} matched from your CV.`;
+  if(top && top.pct > 0){
+    html += `<div class="suggest">Suggested role: ${top.role} (${top.pct}% skill overlap)`;
+    if(second && second.pct > 0 && second.pct >= top.pct - 15){
+      html += ` · also consider ${second.role} (${second.pct}%)`;
+    }
+    html += '</div>';
+  }
+  parseResult.innerHTML = html;
+  parseResult.classList.add('visible');
+}
+
+document.getElementById('parseCv').onclick = async ()=>{
+  const fileInput = document.getElementById('cvFile');
+  const pasted = document.getElementById('cvText').value.trim();
+  try{
+    let text = pasted;
+    if(fileInput.files[0]){
+      text = await readCvFile(fileInput.files[0]);
+    }
+    if(!text || !text.trim()){
+      alert('Upload a .txt/.pdf file or paste your resume text first.');
+      return;
+    }
+    applyCvParse(text);
+  }catch(err){
+    alert('Could not parse CV: ' + err.message);
+  }
+};
+
+document.getElementById('analyze').onclick = ()=>{
+  const roleName = roleSel.value;
+  const role = DATA[roleName];
+  if(!role) return;
+  const exp = parseFloat(document.getElementById('exp').value)||0;
+  const missing = role.skills.filter(s=>!have.has(s.skill)).sort((a,b)=>b.demand-a.demand);
+  const hasCount = role.skills.length - missing.length;
+  const matchPct = Math.round(hasCount / role.skills.length * 100);
+
+  const medianExp = role.medianExp;
+  const expGap = medianExp != null ? exp - medianExp : null;
+  let expMsg = 'Experience benchmark unavailable for this role in the dataset.';
+  if(expGap != null){
+    expMsg = expGap >= 0
+      ? `On par — you meet the typical ${medianExp}-yr mark for this role (from LinkedIn experience labels).`
+      : `${Math.abs(expGap)} yr below the typical ${medianExp}-yr hire. Emphasize projects to offset.`;
+  }
+
+  const salaryBits = [];
+  if(role.medianSalary) salaryBits.push(`median ${fmtMoney(role.medianSalary)}`);
+  if(role.salaryMin && role.salaryMax)
+    salaryBits.push(`range ${fmtMoney(role.salaryMin)}–${fmtMoney(role.salaryMax)}`);
+  const salaryMsg = salaryBits.length
+    ? salaryBits.join(', ') + ' (USD/yr where available)'
+    : 'Salary data sparse for this role';
+
+  const applicants = role.applicants;
+  const applicantMsg = applicants != null && !Number.isNaN(applicants)
+    ? `~${applicants} applicants per posting`
+    : 'Applicants data unavailable';
+
+  const gapHTML = missing.length
+    ? missing.map(s=>`
+        <div class="gap">
+          <div class="top"><b>${s.skill}</b>
+            <span class="pct">${s.demand}% · ${s.postingCount} of ${role.totalPostings} postings</span></div>
+          <div class="bar"><span style="width:${Math.min(s.demand,100)}%"></span></div>
+        </div>`).join('')
+    : `<p class="none">No skill gaps — you signal every commonly-required skill for this role.</p>`;
+
+  const plan = missing.slice(0,3);
+  const planHTML = plan.length
+    ? `<h3>Your top upskilling priorities</h3><ul class="plan">${
+        plan.map(s=>`<li><b>${s.skill}</b> — ${s.learn}</li>`).join('')}</ul>`
+    : '';
+
+  const cvNote = cvTextCache
+    ? '<p style="font-size:13px;color:var(--muted)">Analysis uses skills detected from your uploaded CV plus any chips you toggled.</p>'
+    : '';
+
+  results.innerHTML = `
+    <span class="badge">Based on ${role.totalPostings.toLocaleString()} real postings · sources: ${role.sources || 'LinkedIn + Indeed'}</span>
+    ${cvNote}
+    <div class="summary">
+      <div class="stat"><div class="n">${matchPct}%</div>
+        <div class="l">skill match for ${roleName}</div>
+        <div class="sub">from ${role.skills.length} tracked skills</div></div>
+      <div class="stat"><div class="n">${missing.length}</div>
+        <div class="l">in-demand skills missing</div>
+        <div class="sub">ranked by posting frequency</div></div>
+      <div class="stat"><div class="n">${applicantMsg.replace('~','')}</div>
+        <div class="l">applicants per posting</div>
+        <div class="sub">mindweave applications dataset</div></div>
+      <div class="stat"><div class="n">${role.medianSalary ? fmtMoney(role.medianSalary) : '—'}</div>
+        <div class="l">median salary</div>
+        <div class="sub">${salaryMsg}</div></div>
+    </div>
+    <h3>Skills to close, ranked by how often postings require them</h3>
+    ${gapHTML}
+    <h3>Experience benchmark</h3>
+    <p style="font-size:14px">${expMsg}</p>
+    ${planHTML}`;
+  results.style.display='block';
+  results.scrollIntoView({behavior:'smooth'});
+};
+
+const tabBenchmark = document.getElementById('tabBenchmark');
+const tabPosting = document.getElementById('tabPosting');
+const benchmarkPanel = document.getElementById('benchmarkPanel');
+const postingPanel = document.getElementById('postingPanel');
+
+function setMode(mode){
+  const isBenchmark = mode === 'benchmark';
+  tabBenchmark.classList.toggle('active', isBenchmark);
+  tabPosting.classList.toggle('active', !isBenchmark);
+  tabBenchmark.setAttribute('aria-selected', isBenchmark ? 'true' : 'false');
+  tabPosting.setAttribute('aria-selected', !isBenchmark ? 'true' : 'false');
+  benchmarkPanel.classList.toggle('active', isBenchmark);
+  postingPanel.classList.toggle('active', !isBenchmark);
+  results.style.display = 'none';
+}
+
+tabBenchmark.onclick = () => setMode('benchmark');
+tabPosting.onclick = () => setMode('posting');
+
+document.getElementById('analyzeJob').onclick = () => {
+  const postingText = document.getElementById('jobPosting').value.trim();
+  if(!postingText){
+    alert('Paste a job posting first.');
+    return;
+  }
+  const cvText = getCvText();
+  if(!cvText){
+    alert('Parse your CV first (upload or paste above, then click "Parse my CV").');
+    return;
+  }
+  if(!cvTextCache) cvTextCache = cvText;
+
+  const parsed = parseJobPosting(postingText);
+  renderPostingPreview(parsed);
+
+  const cvSkills = getCvSkills();
+  const cvExp = parseFloat(document.getElementById('exp').value);
+  const expVal = Number.isNaN(cvExp) ? extractExperience(cvText) : cvExp;
+
+  renderJobFitResults(parsed, cvSkills, expVal);
+};
+
+document.getElementById('jobPosting').addEventListener('blur', () => {
+  const text = document.getElementById('jobPosting').value.trim();
+  if(text.length > 80){
+    renderPostingPreview(parseJobPosting(text));
+  } else {
+    document.getElementById('postingPreview').classList.remove('visible');
+  }
+});
+
+function renderFoot(){
+  const total = META.total_postings_matched;
+  const byRole = META.by_role || {};
+  const roleBreakdown = Object.entries(byRole)
+    .map(([r,n])=>`${r}: ${n}`)
+    .join(' · ');
+  foot.innerHTML = `
+    <strong>Data sources:</strong>
+    <a href="https://huggingface.co/datasets/xanderios/linkedin-job-postings" target="_blank" rel="noopener">LinkedIn job postings</a>,
+    <a href="https://huggingface.co/datasets/fact-den/indeed-job-postings-2026" target="_blank" rel="noopener">Indeed 2026 sample</a>,
+    <a href="https://huggingface.co/datasets/mindweave/job-postings-applications" target="_blank" rel="noopener">Mindweave applications</a>.
+    ${total ? `<br>Aggregated from <strong>${total.toLocaleString()}</strong> role-matched postings (${roleBreakdown}).` : ''}
+    ${META.generatedNote ? `<br>${META.generatedNote}` : ''}
+    ${META.skillExtraction ? `<br>Skill extraction: ${META.skillExtraction}.` : ''}
+    Demand % = share of role postings whose title/description mentions each skill (keyword lexicon).
+    Not a prediction of any individual hiring decision.
+    <details>
+      <summary>About the data</summary>
+      <table>
+        <thead><tr><th>Dataset</th><th>HF repo</th><th>Columns used</th></tr></thead>
+        <tbody>
+          <tr><td>LinkedIn</td><td>xanderios/linkedin-job-postings</td><td>title, description, formatted_experience_level, med_salary, skills_desc, applies</td></tr>
+          <tr><td>Indeed</td><td>fact-den/indeed-job-postings-2026</td><td>title, description, salaryMin, salaryMax</td></tr>
+          <tr><td>Mindweave</td><td>mindweave/job-postings-applications</td><td>jobs.title, jobs.role_family, applications (count per job)</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:10px">CV parsing runs entirely in your browser. Skills are matched via keyword lexicon — synonyms and unstated skills may be missed.</p>
+    </details>`;
+}
+
+if(window.JOB_FIT_DATA){
+  loadPayload(window.JOB_FIT_DATA);
+}else{
+  foot.textContent = 'Run python data/aggregate.py && python data/build_data_js.py to generate data/data.js.';
+}
+</script>
+</body>
+</html>

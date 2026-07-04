@@ -1,0 +1,28 @@
+{
+  "downloaded": [
+    {
+      "repo": "xanderios/linkedin-job-postings",
+      "file": "job_postings.csv",
+      "path": "/Users/rachnaraj/Downloads/TEAM-05---Job-Search-and-Career-Transition-Support/data/raw/xanderios__linkedin-job-postings/job_postings.csv",
+      "method": "file"
+    },
+    {
+      "repo": "fact-den/indeed-job-postings-2026",
+      "file": "jobs/jobs.csv",
+      "path": "/Users/rachnaraj/Downloads/TEAM-05---Job-Search-and-Career-Transition-Support/data/raw/fact-den__indeed-job-postings-2026/jobs/jobs.csv",
+      "method": "file"
+    },
+    {
+      "repo": "fact-den/indeed-job-postings-2026",
+      "file": "companies/companies.csv",
+      "path": "/Users/rachnaraj/Downloads/TEAM-05---Job-Search-and-Career-Transition-Support/data/raw/fact-den__indeed-job-postings-2026/companies/companies.csv",
+      "method": "file"
+    },
+    {
+      "repo": "mindweave/job-postings-applications",
+      "path": "/Users/rachnaraj/Downloads/TEAM-05---Job-Search-and-Career-Transition-Support/data/raw/mindweave__job-postings-applications",
+      "method": "snapshot"
+    }
+  ],
+  "errors": []
+}

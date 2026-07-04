@@ -1,0 +1,64 @@
+role,skill,demand_pct,posting_count,role_total_postings
+Data Analyst,Excel,60.8,453,745
+Data Analyst,SQL,39.5,294,745
+Data Analyst,Python,28.6,213,745
+Data Analyst,Statistics,27.9,208,745
+Data Analyst,Tableau,17.9,133,745
+Data Analyst,Data visualization,17.0,127,745
+Data Analyst,Power BI,17.0,127,745
+Data Analyst,ETL,5.6,42,745
+Data Analyst,Pandas,1.9,14,745
+Software Engineer,Python,38.8,367,945
+Software Engineer,Testing,37.5,354,945
+Software Engineer,JavaScript,37.1,351,945
+Software Engineer,SQL,36.3,343,945
+Software Engineer,Cloud (AWS),28.7,271,945
+Software Engineer,React,27.7,262,945
+Software Engineer,Git,23.5,222,945
+Software Engineer,Kubernetes,21.3,201,945
+Software Engineer,Docker,19.2,181,945
+Software Engineer,REST APIs,15.6,147,945
+Software Engineer,Java,13.5,128,945
+Software Engineer,Data structures,8.1,77,945
+Product Manager,Stakeholder management,50.7,244,481
+Product Manager,Roadmapping,50.1,241,481
+Product Manager,Agile,29.1,140,481
+Product Manager,Analytics,23.1,111,481
+Product Manager,Product strategy,21.6,104,481
+Product Manager,Prototyping,20.4,98,481
+Product Manager,Figma,10.2,49,481
+Product Manager,User research,9.6,46,481
+Product Manager,Wireframing,8.9,43,481
+Product Manager,Design systems,7.9,38,481
+Product Manager,Jira,6.9,33,481
+Product Manager,SQL,5.2,25,481
+Sales,Demo skills,36.1,883,2443
+Sales,CRM (Salesforce),25.6,626,2443
+Sales,Negotiation,18.8,459,2443
+Sales,Pipeline management,16.7,408,2443
+Sales,Quota attainment,15.2,372,2443
+Sales,Prospecting,15.0,366,2443
+Sales,Cold outreach,9.7,236,2443
+Sales,Lead generation,5.9,144,2443
+Sales,Account planning,2.5,62,2443
+Sales,HubSpot,1.4,34,2443
+Customer Success,Renewals,57.7,41,71
+Customer Success,CRM (Salesforce),54.9,39,71
+Customer Success,Account management,35.2,25,71
+Customer Success,Onboarding,31.0,22,71
+Customer Success,Retention,29.6,21,71
+Customer Success,Upselling,23.9,17,71
+Customer Success,Churn reduction,9.9,7,71
+Customer Success,Support escalation,8.5,6,71
+Customer Success,Customer advocacy,4.2,3,71
+Customer Success,Product adoption,2.8,2,71
+Operations,Excel,60.8,1031,1697
+Operations,Project management,50.5,857,1697
+Operations,Cross-functional coordination,21.3,362,1697
+Operations,Process improvement,17.3,294,1697
+Operations,Supply chain,12.8,218,1697
+Operations,Agile,12.0,203,1697
+Operations,Logistics,10.3,174,1697
+Operations,KPI tracking,9.4,159,1697
+Operations,Data analysis,3.5,60,1697
+Operations,Vendor management,2.8,48,1697
