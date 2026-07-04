@@ -2,9 +2,9 @@
 
 Static HTML tool that compares your skills against **real job-posting aggregates** from Hugging Face datasets. Upload your CV to auto-detect skills and suggested roles — all parsing runs **client-side** in the browser. No server required.
 
-## Two analysis modes
+## Three analysis modes
 
-The app supports two ways to evaluate your fit — both run entirely in the browser.
+The app supports three ways to evaluate your fit — all run entirely in the browser.
 
 ### Mode A: Benchmark against market data (default)
 
@@ -29,12 +29,20 @@ Results include:
 
 A requirements preview appears when you leave the posting textarea (or when you run the analysis).
 
-### Limitations (both modes)
+### Mode C: Career Pathfinder
+
+1. Parse your CV first (same as above).
+2. Switch to **Career Pathfinder**.
+3. **Transition path** tab — pick a starting role and a target role. Instead of just scoring one role, this treats the six roles as a graph: edge weight ("friction") is `1 − cosine similarity` between each pair of roles' skill-demand vectors, computed from real posting data. It runs a shortest-path search and will surface a **stepping-stone role** when a two-hop route (e.g. Sales → Customer Success → Product Manager) has lower total friction than jumping directly — something a single-role gap calculator can't show.
+4. **Skill ROI** tab — for a target role, ranks your missing skills by a **priority score** = market demand % + salary lift (the difference in median salary between postings that mention the skill and postings that don't, expressed as % of the role's median salary). This tells you which skill to learn *first*, not just which is most common.
+
+### Limitations (all three modes)
 
 - Keyword matching only — misses synonyms, abbreviations, and skills not in the lexicon.
 - Posting experience parsing is heuristic ("3+ years", "senior", etc.) and may miss unusual wording.
 - Fit score reflects lexicon overlap, **not** a prediction of hiring outcome.
 - PDF text extraction can scramble layout; `.docx` is not supported — paste text instead.
+- Salary lift and friction scores are only as reliable as sample size — roles with few postings (e.g. Customer Success, ~71) or skills with sparse salary data can produce noisy or counterintuitive numbers. Salary lift is omitted (shown as "insufficient samples") when fewer than 5 postings exist on either side of the comparison.
 
 ## Quick start (demo)
 
@@ -78,9 +86,9 @@ python data/aggregate.py
 
 Outputs:
 
-- `data/skills_by_role.csv` — role, skill, demand_pct, posting_count, role_total_postings
+- `data/skills_by_role.csv` — role, skill, demand_pct, posting_count, role_total_postings, salary_lift (median salary of postings mentioning the skill minus those that don't; blank if <5 postings on either side)
 - `data/roles.csv` — role, median_experience_years, total_postings, median_salary, salary_min/max, applicants_per_posting, sources
-- `data/aggregated.json` — combined payload for the UI (includes `exampleTitles` and skill lexicon for CV matching)
+- `data/aggregated.json` — combined payload for the UI (includes `exampleTitles`, skill lexicon for CV matching, and `roleTransitions`: a role×role friction/shared-skills/salary-delta graph used by the Career Pathfinder)
 - `data/aggregation_summary.json` — run stats
 
 ### 4. Bake into the static app

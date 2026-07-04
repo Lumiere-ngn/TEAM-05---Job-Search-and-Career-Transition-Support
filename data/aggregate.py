@@ -591,9 +591,18 @@ def aggregate_postings(frames: list[pd.DataFrame]) -> tuple[pd.DataFrame, pd.Dat
         example_titles_by_role[role] = top_example_titles(subset)
 
         skill_hits: Counter[str] = Counter()
-        for text in subset["text"]:
-            for skill in skills_in_text(str(text), role):
+        # Salaries of postings that do/don't mention each skill, for a per-skill salary-lift estimate.
+        salaries_with: dict[str, list[float]] = defaultdict(list)
+        salaries_without: dict[str, list[float]] = defaultdict(list)
+        for _, row in subset.iterrows():
+            found = skills_in_text(str(row["text"]), role)
+            for skill in found:
                 skill_hits[skill] += 1
+            sal = row.get("salary")
+            if sal is None or (isinstance(sal, float) and pd.isna(sal)):
+                continue
+            for skill in SKILL_LEXICON[role]:
+                (salaries_with if skill in found else salaries_without)[skill].append(float(sal))
 
         # Keep top skills for this role (at least 1 hit), sorted by demand
         ranked = skill_hits.most_common()
@@ -603,6 +612,12 @@ def aggregate_postings(frames: list[pd.DataFrame]) -> tuple[pd.DataFrame, pd.Dat
 
         for skill, count in ranked[:12]:
             demand_pct = round(100 * count / total, 1) if total else 0
+            with_sal, without_sal = salaries_with.get(skill, []), salaries_without.get(skill, [])
+            salary_lift = (
+                round(float(np.median(with_sal)) - float(np.median(without_sal)), 0)
+                if len(with_sal) >= 5 and len(without_sal) >= 5
+                else None
+            )
             skill_rows.append(
                 {
                     "role": role,
@@ -610,6 +625,7 @@ def aggregate_postings(frames: list[pd.DataFrame]) -> tuple[pd.DataFrame, pd.Dat
                     "demand_pct": demand_pct,
                     "posting_count": int(count),
                     "role_total_postings": total,
+                    "salary_lift": salary_lift,
                 }
             )
 
@@ -641,6 +657,57 @@ def aggregate_postings(frames: list[pd.DataFrame]) -> tuple[pd.DataFrame, pd.Dat
     return skills_df, roles_df, meta, example_titles_by_role
 
 
+def cosine_similarity(a: dict[str, float], b: dict[str, float]) -> float:
+    keys = set(a) | set(b)
+    dot = sum(a.get(k, 0.0) * b.get(k, 0.0) for k in keys)
+    norm_a = sum(v * v for v in a.values()) ** 0.5
+    norm_b = sum(v * v for v in b.values()) ** 0.5
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot / (norm_a * norm_b)
+
+
+def build_role_transitions(skills_df: pd.DataFrame, roles_df: pd.DataFrame) -> dict:
+    """Skill-overlap graph between roles: friction = 1 - cosine similarity of
+    each role's skill-demand vector. Used client-side for transition pathfinding."""
+    demand_by_role: dict[str, dict[str, float]] = {
+        role: dict(zip(g["skill"], g["demand_pct"])) for role, g in skills_df.groupby("role")
+    }
+    salary_by_role = dict(zip(roles_df["role"], roles_df["median_salary"]))
+
+    transitions: dict[str, dict[str, dict]] = {}
+    for role_a in ROLES:
+        if role_a not in demand_by_role:
+            continue
+        transitions[role_a] = {}
+        for role_b in ROLES:
+            if role_b == role_a or role_b not in demand_by_role:
+                continue
+            vec_a, vec_b = demand_by_role[role_a], demand_by_role[role_b]
+            similarity = cosine_similarity(vec_a, vec_b)
+            friction = round((1 - similarity) * 100, 1)
+            shared = sorted(
+                (
+                    {"skill": s, "demandA": vec_a[s], "demandB": vec_b[s]}
+                    for s in set(vec_a) & set(vec_b)
+                ),
+                key=lambda s: min(s["demandA"], s["demandB"]),
+                reverse=True,
+            )
+            sal_a, sal_b = salary_by_role.get(role_a), salary_by_role.get(role_b)
+            salary_delta = (
+                round(float(sal_b) - float(sal_a), 0)
+                if sal_a is not None and sal_b is not None and pd.notna(sal_a) and pd.notna(sal_b)
+                else None
+            )
+            transitions[role_a][role_b] = {
+                "friction": friction,
+                "sharedSkills": shared,
+                "salaryDelta": salary_delta,
+            }
+    return transitions
+
+
 def main() -> None:
     linkedin = load_linkedin()
     indeed = load_indeed()
@@ -660,8 +727,10 @@ def main() -> None:
     skills_df.to_csv(skills_path, index=False)
     roles_df.to_csv(roles_path, index=False)
 
+    role_transitions = build_role_transitions(skills_df, roles_df)
+
     # Also emit JSON for the static app
-    payload = build_app_payload(skills_df, roles_df, meta, applicants, example_titles)
+    payload = build_app_payload(skills_df, roles_df, meta, applicants, example_titles, role_transitions)
     (OUT / "aggregated.json").write_text(json.dumps(payload, indent=2))
 
     summary = {
@@ -683,6 +752,7 @@ def build_app_payload(
     meta: dict,
     applicants: dict[str, float],
     example_titles: dict[str, list[str]],
+    role_transitions: dict,
 ) -> dict:
     data: dict = {}
     for role in ROLES:
@@ -696,11 +766,13 @@ def build_app_payload(
         skills = []
         for _, s in role_skills.iterrows():
             skill_name = s["skill"]
+            lift = s.get("salary_lift")
             skills.append(
                 {
                     "skill": skill_name,
                     "demand": float(s["demand_pct"]),
                     "postingCount": int(s["posting_count"]),
+                    "salaryLift": float(lift) if lift is not None and pd.notna(lift) else None,
                     "learn": LEARN_LINKS.get(skill_name, "Search free courses on Coursera / YouTube"),
                 }
             )
@@ -735,6 +807,7 @@ def build_app_payload(
             "skillSearch": SKILL_SEARCH,
         },
         "roles": data,
+        "roleTransitions": role_transitions,
     }
 
 

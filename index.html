@@ -95,6 +95,26 @@
   .market-ctx{font-size:13px;color:var(--muted);margin-top:16px;padding-top:14px;
     border-top:1px solid var(--line);line-height:1.6}
   .market-ctx li{margin-bottom:4px}
+  .sub-tabs{display:flex;gap:8px;margin:16px 0 0}
+  .sub-tab{padding:8px 14px;border:1px solid var(--line);border-radius:20px;font-size:13px;
+    font-weight:600;cursor:pointer;background:#fff;color:var(--muted);transition:.15s}
+  .sub-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .sub-tab:hover:not(.active){background:var(--accent-soft)}
+  .sub-panel{display:none}
+  .sub-panel.active{display:block}
+  .path-hop{display:flex;align-items:center;gap:10px;margin:10px 0;padding:12px 14px;
+    background:#f9fafb;border:1px solid var(--line);border-radius:10px;font-size:14px}
+  .path-hop .arrow{color:var(--muted)}
+  .path-hop .friction{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
+  .path-summary{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0}
+  .roi-row{display:flex;justify-content:space-between;align-items:center;gap:12px;
+    padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .roi-row:last-child{border-bottom:0}
+  .roi-row .name{font-weight:600}
+  .roi-row .meta{font-size:12px;color:var(--muted)}
+  .roi-row .score{font-size:16px;font-weight:700;color:var(--accent);white-space:nowrap}
+  .stepping-stone{background:var(--accent-soft);border:1px solid var(--accent);border-radius:10px;
+    padding:10px 14px;font-size:13px;margin-bottom:14px}
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="data/data.js"></script>
@@ -122,6 +142,7 @@
     <div class="mode-tabs" role="tablist">
       <button class="mode-tab active" id="tabBenchmark" type="button" role="tab" aria-selected="true">Benchmark against market data</button>
       <button class="mode-tab" id="tabPosting" type="button" role="tab" aria-selected="false">Analyze a specific job</button>
+      <button class="mode-tab" id="tabPathfinder" type="button" role="tab" aria-selected="false">Career Pathfinder</button>
     </div>
 
     <div class="mode-panel active" id="benchmarkPanel" role="tabpanel">
@@ -165,6 +186,44 @@ Preferred:
       <button class="go" id="analyzeJob" type="button">Analyze fit for this job</button>
       <div class="posting-preview" id="postingPreview"></div>
     </div>
+
+    <div class="mode-panel" id="pathfinderPanel" role="tabpanel">
+      <h2 class="section-head" style="margin-top:18px">Career Pathfinder</h2>
+      <p class="section-sub">Most tools tell you the gap to one role. This finds the lowest-friction <em>route</em> through the job market — including stepping-stone roles — and ranks which skill to learn first by payoff, not just frequency.</p>
+
+      <div class="sub-tabs" role="tablist">
+        <button class="sub-tab active" id="subTabPath" type="button" role="tab" aria-selected="true">Transition path</button>
+        <button class="sub-tab" id="subTabRoi" type="button" role="tab" aria-selected="false">Skill ROI</button>
+      </div>
+
+      <div class="sub-panel active" id="pathSubPanel" role="tabpanel">
+        <p class="hint" style="margin:14px 0">Friction = how different two roles' in-demand skill profiles are (0 = near-identical, 100 = no overlap), based on real posting data. A path through a stepping-stone role can beat jumping directly.</p>
+        <div class="row">
+          <div>
+            <label for="pathFrom">Starting from</label>
+            <select id="pathFrom"></select>
+          </div>
+          <div>
+            <label for="pathTo">Target role</label>
+            <select id="pathTo"></select>
+          </div>
+        </div>
+        <button class="go" id="findPath" type="button">Find transition path</button>
+        <div id="pathResult"></div>
+      </div>
+
+      <div class="sub-panel" id="roiSubPanel" role="tabpanel">
+        <p class="hint" style="margin:14px 0">Ranks the target role's missing skills by <b>priority score</b> = market demand % + salary lift as % of median salary (lift = median salary of postings mentioning the skill vs. those that don't). Parse your CV above so we know what you already have.</p>
+        <div class="row">
+          <div>
+            <label for="roiRole">Target role</label>
+            <select id="roiRole"></select>
+          </div>
+        </div>
+        <button class="go" id="rankRoi" type="button">Rank skills by ROI</button>
+        <div id="roiResult"></div>
+      </div>
+    </div>
   </div>
 
   <div class="card results" id="results"></div>
@@ -179,11 +238,13 @@ if(window.pdfjsLib){
 
 let DATA = {};
 let META = {};
+let TRANSITIONS = {};
 let cvTextCache = '';
 
 function loadPayload(payload){
   DATA = payload.roles || payload;
   META = payload.meta || {};
+  TRANSITIONS = payload.roleTransitions || {};
   init();
 }
 
@@ -217,6 +278,15 @@ function init(){
   renderRoleHint();
   renderChips();
   renderFoot();
+
+  const plainOptions = roles.map(r=>`<option value="${r}">${r}</option>`).join('');
+  const pathFrom = document.getElementById('pathFrom');
+  const pathTo = document.getElementById('pathTo');
+  const roiRole = document.getElementById('roiRole');
+  pathFrom.innerHTML = plainOptions;
+  pathTo.innerHTML = plainOptions;
+  roiRole.innerHTML = plainOptions;
+  if(roles.length > 1) pathTo.value = roles[1];
 }
 
 const roleSel = document.getElementById('role');
@@ -610,6 +680,8 @@ function applyCvParse(text){
     roleSel.value = top.role;
     renderRoleHint();
     renderChips([...skills]);
+    document.getElementById('pathFrom').value = top.role;
+    document.getElementById('roiRole').value = top.role;
   } else {
     renderChips([...skills]);
   }
@@ -723,22 +795,48 @@ document.getElementById('analyze').onclick = ()=>{
 
 const tabBenchmark = document.getElementById('tabBenchmark');
 const tabPosting = document.getElementById('tabPosting');
+const tabPathfinder = document.getElementById('tabPathfinder');
 const benchmarkPanel = document.getElementById('benchmarkPanel');
 const postingPanel = document.getElementById('postingPanel');
+const pathfinderPanel = document.getElementById('pathfinderPanel');
+
+const MODE_TABS = {
+  benchmark: { tab: tabBenchmark, panel: benchmarkPanel },
+  posting: { tab: tabPosting, panel: postingPanel },
+  pathfinder: { tab: tabPathfinder, panel: pathfinderPanel },
+};
 
 function setMode(mode){
-  const isBenchmark = mode === 'benchmark';
-  tabBenchmark.classList.toggle('active', isBenchmark);
-  tabPosting.classList.toggle('active', !isBenchmark);
-  tabBenchmark.setAttribute('aria-selected', isBenchmark ? 'true' : 'false');
-  tabPosting.setAttribute('aria-selected', !isBenchmark ? 'true' : 'false');
-  benchmarkPanel.classList.toggle('active', isBenchmark);
-  postingPanel.classList.toggle('active', !isBenchmark);
+  for(const [key, { tab, panel }] of Object.entries(MODE_TABS)){
+    const active = key === mode;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    panel.classList.toggle('active', active);
+  }
   results.style.display = 'none';
 }
 
 tabBenchmark.onclick = () => setMode('benchmark');
 tabPosting.onclick = () => setMode('posting');
+tabPathfinder.onclick = () => setMode('pathfinder');
+
+const subTabPath = document.getElementById('subTabPath');
+const subTabRoi = document.getElementById('subTabRoi');
+const pathSubPanel = document.getElementById('pathSubPanel');
+const roiSubPanel = document.getElementById('roiSubPanel');
+
+function setPathMode(mode){
+  const isPath = mode === 'path';
+  subTabPath.classList.toggle('active', isPath);
+  subTabRoi.classList.toggle('active', !isPath);
+  subTabPath.setAttribute('aria-selected', isPath ? 'true' : 'false');
+  subTabRoi.setAttribute('aria-selected', !isPath ? 'true' : 'false');
+  pathSubPanel.classList.toggle('active', isPath);
+  roiSubPanel.classList.toggle('active', !isPath);
+}
+
+subTabPath.onclick = () => setPathMode('path');
+subTabRoi.onclick = () => setPathMode('roi');
 
 document.getElementById('analyzeJob').onclick = () => {
   const postingText = document.getElementById('jobPosting').value.trim();
@@ -771,6 +869,129 @@ document.getElementById('jobPosting').addEventListener('blur', () => {
     document.getElementById('postingPreview').classList.remove('visible');
   }
 });
+
+function shortestRolePath(source, target){
+  const roles = Object.keys(DATA);
+  const dist = {}, prev = {}, visited = new Set();
+  roles.forEach(r => dist[r] = Infinity);
+  dist[source] = 0;
+  while(visited.size < roles.length){
+    let u = null, best = Infinity;
+    for(const r of roles){
+      if(!visited.has(r) && dist[r] < best){ best = dist[r]; u = r; }
+    }
+    if(u === null) break;
+    visited.add(u);
+    if(u === target) break;
+    for(const [v, info] of Object.entries(TRANSITIONS[u] || {})){
+      const alt = dist[u] + info.friction;
+      if(alt < dist[v]){ dist[v] = alt; prev[v] = u; }
+    }
+  }
+  if(!Number.isFinite(dist[target])) return null;
+  const path = [target];
+  let cur = target;
+  while(prev[cur] !== undefined){ cur = prev[cur]; path.unshift(cur); }
+  return { path, totalFriction: Math.round(dist[target] * 10) / 10 };
+}
+
+function renderPathResult(source, target){
+  const out = document.getElementById('pathResult');
+  if(source === target){
+    out.innerHTML = '<p class="hint">Pick two different roles to find a transition path.</p>';
+    return;
+  }
+  const direct = TRANSITIONS[source]?.[target];
+  const best = shortestRolePath(source, target);
+  if(!direct && !best){
+    out.innerHTML = '<p class="hint">No transition data available for this pair of roles.</p>';
+    return;
+  }
+  const viaStepping = best && best.path.length > 2 && direct && best.totalFriction < direct.friction - 0.5;
+  const finalPath = viaStepping ? best.path : [source, target];
+  const finalFriction = viaStepping ? best.totalFriction : (direct ? direct.friction : best.totalFriction);
+
+  const steppingNote = viaStepping
+    ? `<div class="stepping-stone"><b>Stepping-stone path found:</b> going ${finalPath.join(' → ')} totals ${finalFriction} friction — lower than jumping directly (${direct.friction}).</div>`
+    : '';
+
+  const hops = [];
+  for(let i = 0; i < finalPath.length - 1; i++){
+    const a = finalPath[i], b = finalPath[i+1];
+    const info = TRANSITIONS[a]?.[b];
+    if(!info) continue;
+    const salaryLine = info.salaryDelta != null
+      ? `${info.salaryDelta >= 0 ? '+' : '−'}${fmtMoney(Math.abs(info.salaryDelta))} median salary`
+      : 'salary data sparse';
+    const sharedLine = info.sharedSkills.length
+      ? `shares ${info.sharedSkills.slice(0,4).map(s=>s.skill).join(', ')}`
+      : 'no tracked skills overlap';
+    hops.push(`
+      <div class="path-hop">
+        <span><b>${a}</b></span>
+        <span class="arrow">→</span>
+        <span><b>${b}</b></span>
+        <span class="friction">friction ${info.friction} · ${salaryLine} · ${sharedLine}</span>
+      </div>`);
+  }
+
+  out.innerHTML = `
+    ${steppingNote}
+    <div class="path-summary">
+      <div class="stat"><div class="n">${finalFriction}</div>
+        <div class="l">total friction</div>
+        <div class="sub">0 = near-identical skill profile, 100 = no overlap</div></div>
+      <div class="stat"><div class="n">${finalPath.length - 1}</div>
+        <div class="l">hop${finalPath.length - 1 === 1 ? '' : 's'}</div>
+        <div class="sub">${finalPath.join(' → ')}</div></div>
+    </div>
+    ${hops.join('')}
+    <p class="hint" style="margin-top:14px">Friction is derived from cosine similarity between each role's in-demand skill mix (skills_by_role aggregates) — a heuristic, not a guaranteed hiring path.</p>`;
+}
+
+document.getElementById('findPath').onclick = () => {
+  renderPathResult(document.getElementById('pathFrom').value, document.getElementById('pathTo').value);
+};
+
+function renderRoiResult(){
+  const out = document.getElementById('roiResult');
+  const roleName = document.getElementById('roiRole').value;
+  const role = DATA[roleName];
+  if(!role) return;
+  const cvSkills = getCvSkills();
+  const missing = role.skills.filter(s => !cvSkills.has(s.skill));
+
+  if(!missing.length){
+    out.innerHTML = '<p class="none">You already have every tracked skill for this role — nothing to prioritize.</p>';
+    return;
+  }
+
+  const ranked = missing.map(s => {
+    const liftPct = (s.salaryLift != null && role.medianSalary) ? (s.salaryLift / role.medianSalary * 100) : null;
+    const priority = Math.round((s.demand + (liftPct || 0)) * 10) / 10;
+    return { ...s, liftPct, priority };
+  }).sort((a,b) => b.priority - a.priority);
+
+  const rowsHTML = ranked.map(s => {
+    const liftLabel = s.salaryLift != null
+      ? `${s.salaryLift >= 0 ? '+' : '−'}${fmtMoney(Math.abs(s.salaryLift))} salary lift (${s.liftPct >= 0 ? '+' : ''}${Math.round(s.liftPct)}%)`
+      : 'salary lift: insufficient samples';
+    return `
+      <div class="roi-row">
+        <div>
+          <div class="name">${s.skill}</div>
+          <div class="meta">${s.demand}% of postings mention it · ${liftLabel} · ${s.learn}</div>
+        </div>
+        <div class="score">${s.priority}</div>
+      </div>`;
+  }).join('');
+
+  out.innerHTML = `
+    <p class="hint" style="margin:10px 0 0">Priority score = demand % + salary lift as % of median salary. Higher = learn first.</p>
+    ${rowsHTML}`;
+}
+
+document.getElementById('rankRoi').onclick = renderRoiResult;
 
 function renderFoot(){
   const total = META.total_postings_matched;
